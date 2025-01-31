@@ -1,0 +1,83 @@
+---
+title: "assignment 1"
+author: "Joakim, S, Nilsskog"
+format: html
+editor: visual
+---
+
+```{r}
+rm (list = ls())
+library(tidyverse)
+```
+
+```{r}
+rm(list = ls())
+
+library(tidyverse)
+library(zoo)
+
+# loading inn urls.
+url <- list(
+  lowerT = "http://vortex.nsstc.uah.edu/data/msu/v6.0/tlt/uahncdc_lt_6.0.txt",
+  midT   = "http://vortex.nsstc.uah.edu/data/msu/v6.0/tmt/uahncdc_mt_6.0.txt",
+  troT   = "http://vortex.nsstc.uah.edu/data/msu/v6.0/ttp/uahncdc_tp_6.0.txt",
+  lowerS = "http://vortex.nsstc.uah.edu/data/msu/v6.0/tls/uahncdc_ls_6.0.txt"
+)
+
+```
+
+```{r}
+
+
+# loding inn data setts and transforming them.
+data <- function(url, name) {
+  df <- read.table(url, header = FALSE, fill = TRUE, skip = 1, stringsAsFactors = FALSE)
+  
+  
+  # giving names to the verieble.
+  colnames(df) <- c("Year", "Month", "Temperature", paste0("V", 4:ncol(df)))
+  
+  # Konvert to nummeric
+  df$Temperature <- as.numeric(df$Temperature)
+  
+  # Filter and calculate 12 month intervals.
+  df <- df %>%
+    filter(Year >= 1980) %>%
+    mutate(
+      Moving_Avg = rollmean(Temperature, k = 12, fill = NA, align = "right"),
+      Location = name
+    ) %>%
+    select(Year, Month, Moving_Avg, Location) # chosing varieble.
+  
+  return(df)
+}
+
+data_list <- map2(url, names(url), data)
+
+# kombining data setts.
+slutt_data <- bind_rows(data_list)
+```
+
+```{r}
+
+
+# calculate the mean of the four sones.
+mean_data <- slutt_data %>%
+  group_by(Year, Month) %>%
+  summarise(Moving_Avg = mean(Moving_Avg, na.rm = TRUE)) %>%
+  mutate(Location = "Average")
+
+# adding the avrage to the datasett.
+plot_data <- bind_rows(slutt_data, mean_data)
+
+# Plott the data.
+plot_data %>% 
+ggplot(aes(x = as.Date(paste(Year, Month, "01", sep = "-")), y = Moving_Avg, color = Location)) +
+  geom_line(size = 1) +
+  labs(title = "12-Month Moving Average Temperature (1980 and onwards)",
+       x = "Year",
+       y = "Temperature Anomaly (°C)",
+       color = "Location") +
+  theme_minimal()
+
+```
