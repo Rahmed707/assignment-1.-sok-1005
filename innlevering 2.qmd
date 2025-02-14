@@ -1,0 +1,175 @@
+---
+title: "innlevering 2. sok-1005"
+format: html
+editor: visual
+---
+
+Task 1.
+
+1.1
+
+```{r}
+
+rm(list=ls())
+library(tidyverse)
+
+url <- "https://raw.githubusercontent.com/uit-sok-1005-v23/uit-sok-1005-v23.github.io/main/storedata.csv"
+
+store_data <- read_csv(url)
+
+head(store_data)
+```
+
+1.2
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(lubridate)
+
+url <- "https://raw.githubusercontent.com/uit-sok-1005-v23/uit-sok-1005-v23.github.io/main/storedata.csv"
+df <- read_csv(url, show_col_types = FALSE)  
+
+df <- df %>%
+  mutate(Year = year(Order_Date),
+         Month = as.integer(month(Order_Date)))
+
+df_filtered_plot <- df %>%
+  filter(Year %in% c(2015, 2016, 2017), Region %in% c("Region 1", "Region 13"))
+
+df_monthly_sales <- df_filtered_plot %>%
+  group_by(Year, Month, Region) %>%
+  summarise(Total_Sales = sum(Sales, na.rm = TRUE), .groups = "drop") %>%
+  mutate(YearMonth = as.Date(paste(Year, Month, "01", sep = "-")))
+
+line_plot <- ggplot(df_monthly_sales, aes(x = YearMonth, y = Total_Sales, color = Region)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(title = "Monthly Total Sales in Region 1 and Region 13 (2015-2017)",
+       x = "Year-Month", y = "Total Sales") +
+  theme_minimal() +
+  scale_x_date(date_labels = "%Y-%m", date_breaks = "6 months") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+facet_line_plot <- ggplot(df_monthly_sales, aes(x = Month, y = Total_Sales, color = Region, group = Region)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  facet_wrap(~Year) +
+  scale_x_continuous(breaks = 1:12, labels = 1:12) +
+  labs(title = "Monthly Sales Trends by Year",
+       x = "Month", y = "Total Sales") +
+  theme_minimal()
+
+print(line_plot)
+print(facet_line_plot)
+
+
+
+```
+
+1.3
+
+```{r}
+sales_wide <- df_monthly_sales %>%
+  pivot_wider(names_from = Region, values_from = Total_Sales)
+
+table_2 <- sales_wide %>%
+  filter(`Region 13` > `Region 1`)
+
+print(table_2)
+```
+
+1.4
+
+```{r}
+library(dplyr)
+df_filtered <- df_filtered_plot %>%
+  filter(Year == 2017 & !Region %in% c(3, 5, 8))
+
+table_3 <- df_filtered %>%
+  group_by(Customer_Segment, Product_Category) %>%
+  summarise(Average_Profit = mean(Profit, na.rm = TRUE)) %>%
+  arrange(desc(Average_Profit))
+
+print(table_3)
+
+highest_avg_profit_segment <- table_3 %>% slice(1)
+print(highest_avg_profit_segment)
+
+```
+
+Task 2.
+
+```{r}
+rm(list=ls()) 
+library(rvest)
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+```
+
+2 A.
+
+```{r}
+
+rm(list=ls())
+# URL.
+url <- "https://www.motor.no/aktuelt/motors-store-vintertest-av-rekkevidde-pa-elbiler/217132"
+webpage <- read_html(url)
+tables <- html_nodes(webpage, "table") %>% 
+  html_table(fill = TRUE)
+df <- tables[[1]]  
+df_clean <- df %>% 
+  mutate(across(everything(), as.character)) 
+colnames(df_clean) <- df_clean[1, ]
+df_clean <- df_clean[-1, ]
+head(df_clean)
+
+```
+
+```{r}
+df_clean <- df_clean %>%
+  mutate(
+    `WLTP-tall` = as.numeric(gsub("[^0-9]", "", `WLTP-tall`)),  # Extract only numbers
+    STOPP = as.numeric(gsub("[^0-9]", "", STOPP))
+  )
+```
+
+```{r}
+
+# Beregn gjennomsnitt av STOPP
+mean_stopp <- mean(df_clean$STOPP)
+
+plot <- ggplot(df_clean, aes(x = `WLTP-tall`, y = STOPP)) +
+  geom_point(size = 3, alpha = 0.7) +
+  geom_line(intercept = 0, slope = 1, color = "blue", linetype = "dashed", size = 1, alpha = 0.5) +
+  labs(title = "real range vs hypotetic",
+       subtitle = "this plot shows the hypothetic range of diffrent electrical car brans in km.",
+       x = "WLTP / hypothetical range",
+       y = "STOPP / Actual Range") +
+  theme_minimal()
+print(plot)
+```
+
+```{r}
+model <- lm(STOPP ~ `WLTP-tall`, data = df_clean)
+summary_model <- summary(model)
+print(summary_model)
+```
+
+2 B.
+
+```{r}
+plot <- plot + 
+  geom_smooth(method = "lm", se = FALSE, color = "blue", size = 1) +
+  labs(caption = paste("Regression line: Actual Range =",
+                       round(coef(model)[1], 2), "+",
+                       round(coef(model)[2], 2), "* WLTP"))
+
+print(plot)
+```
+
+in the figure above i have made a plot of electrical cars / brands, here we ar wanting to see how much diffrent the hypotetical range to the real wolrd range. none of the cars had the or went above the promised range, on the y axis we can see where thwy stopped, and on the x axis we can see the hypotetical range.
+
+i did not manage to make a linje for the hypothetical range to compare the to ranges.
