@@ -1,0 +1,260 @@
+---
+title: "innlevring 3.qmd"
+format: html
+editor: visual
+---
+
+```{r}
+library(readxl)
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+
+rm(list=ls())
+
+```
+
+## task 1.
+
+```{r}
+file_path <- "C:/Users/sydha/Downloads/f319e1c8-5654-4cd6-b4c7-5722ae437d30-Ukraine_Support_Tracker_Release_21.xlsx"
+
+df <- read_excel(file_path, sheet = "Country Summary (€)", skip = 6)
+
+colnames(df)[c(2, 5, 6, 7, 8)] <- c("Country", "Financial", "Humanitarian", "Military", "Total_Bilateral")
+
+df <- df %>% filter(!is.na(Country) & Country != "")
+
+df$Country <- as.character(df$Country)
+
+df <- df %>% mutate(
+  Financial = as.numeric(Financial),
+  Humanitarian = as.numeric(Humanitarian),
+  Military = as.numeric(Military),
+  Total_Bilateral = as.numeric(Total_Bilateral)
+)
+
+df <- na.omit(df)
+
+df <- df %>% filter(!grepl("Total|Summary", Country, ignore.case = TRUE))
+
+df <- df %>% arrange(Total_Bilateral)
+
+df_long <- df %>%
+  pivot_longer(cols = c(Financial, Humanitarian, Military), 
+               names_to = "Category", 
+               values_to = "Amount")
+
+ggplot(df_long, aes(x = Amount, y = reorder(`European Investment Bank`, Amount), fill = Category)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Total Bilateral Allocations by Category and Country",
+       x = "Total Bilateral Allocations (€ billion)",
+       y = "Country") +
+  theme_minimal() +
+  scale_fill_manual(values = c("Financial" = "blue", "Humanitarian" = "green", "Military" = "red")) +
+  theme(axis.text.y = element_text(size = 10))
+
+```
+
+Task 2.1.
+
+her fikk jeg ikke til å velge ut en periode og fikk plotet nedenfor.
+
+= i didn't manage to plot a specific period so i ended up with the plot down below.
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(lubridate)
+
+url <- "https://raw.githubusercontent.com/ywchiu/rcookbook/master/chapter7/superstore_sales.csv"
+df <- read.csv(url, stringsAsFactors = FALSE)
+```
+
+```{r}
+# Plot resultater
+ggplot(df, aes(x = Order.Date , y = Sales)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  theme_minimal() +
+  labs(title = "Total Monthly Sales",
+       x = "Month",
+       y = "Total Sales") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+2.2
+
+```{r}
+province_sales <- df %>%
+  group_by(Province) %>%
+  summarise(Total_Sales = sum(Sales, na.rm = TRUE)) %>%
+  arrange(desc(Total_Sales))
+
+ggplot(province_sales, aes(x = reorder(Province, -Total_Sales), y = Total_Sales)) +
+  geom_bar(stat = "identity", fill = "lightgreen") +
+  labs(title = "Total Sales by Province", x = "Province", y = "Total Sales") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+2.3
+
+```{r}
+most_sold_category <- df %>%
+  group_by(Province, Product.Category) %>%
+  summarise(Total_Sales = sum(Sales, na.rm = TRUE)) %>%
+  top_n(1, wt = Total_Sales)
+
+ggplot(most_sold_category, aes(x = reorder(Province, -Total_Sales), y = Total_Sales, fill = Product.Category)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Most Sold Product Category by Province", x = "Province", y = "Total Sales") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+task 3.
+
+jeg fikk ikke til å hente data settet fra gapminder pakken, så jeg brukte en url istedet.
+
+= i didn't manage to use the gapminder package to download the data set so i used a url insted.
+
+3 A.
+
+```{r}
+library(tidyverse)
+library(readr)
+
+url <- "https://raw.githubusercontent.com/resbaz/r-novice-gapminder-files/master/data/gapminder-FiveYearData.csv"
+gapminder <- read_csv(url)  
+
+
+life_expectancy_asia <- gapminder %>%
+  filter(continent == "Asia") %>%
+  group_by(year) %>%
+  summarise(
+    Min_LifeExp = min(lifeExp, na.rm = TRUE),
+    Max_LifeExp = max(lifeExp, na.rm = TRUE))
+
+print(life_expectancy_asia)
+
+
+```
+
+3 B.
+
+```{r}
+
+life_expectancy_asia <- gapminder %>%
+  filter(continent == "Asia") %>%
+  group_by(year) %>%
+  summarise(
+    Min_LifeExp = min(lifeExp, na.rm = TRUE),
+    Max_LifeExp = max(lifeExp, na.rm = TRUE))
+
+life_expectancy_asia <- life_expectancy_asia %>%
+  mutate(
+    Min_LifeExp_LogDiff = log(Min_LifeExp) - lag(log(Min_LifeExp)), 
+    Max_LifeExp_LogDiff = log(Max_LifeExp) - lag(log(Max_LifeExp)))
+
+growth_comparison <- life_expectancy_asia %>%
+  summarise(
+    Total_Min_Growth = sum(Min_LifeExp_LogDiff, na.rm = TRUE),
+    Total_Max_Growth = sum(Max_LifeExp_LogDiff, na.rm = TRUE))
+
+print(life_expectancy_asia)
+print(growth_comparison)
+
+```
+
+3 C.
+
+```{r}
+country_avg <- gapminder %>%
+  group_by(country) %>%
+  summarise(
+    Avg_LifeExp = mean(lifeExp, na.rm = TRUE),
+    Avg_GDP = mean(gdpPercap, na.rm = TRUE))
+
+top_20_lifeexp <- country_avg %>%
+  arrange(desc(Avg_LifeExp)) %>%
+  head(20)
+
+ggplot(top_20_lifeexp, aes(x = reorder(country, Avg_LifeExp), y = Avg_LifeExp)) +
+  geom_point(color = "blue", size = 3) +
+  coord_flip() +  
+  labs(title = "Top 20 Countries by Life Expectancy", x = "Country", y = "Average Life Expectancy") +
+  theme_minimal()
+
+top_20_gdp <- country_avg %>%
+  arrange(desc(Avg_GDP)) %>%
+  head(20)
+
+ggplot(top_20_gdp, aes(x = reorder(country, Avg_GDP), y = Avg_GDP)) +
+  geom_point(color = "red", size = 3) +
+  coord_flip() +  
+  labs(title = "Top 20 Countries by GDP per Capita", x = "Country", y = "Average GDP per Capita") +
+  theme_minimal()
+
+```
+
+3 D.
+
+```{r}
+country_avg <- gapminder %>%
+  group_by(country, continent) %>%  
+  summarise(
+    Avg_LifeExp = mean(lifeExp, na.rm = TRUE),
+    Avg_GDP = mean(gdpPercap, na.rm = TRUE))
+
+
+ggplot(country_avg, aes(x = Avg_GDP, y = Avg_LifeExp, color = continent)) +
+  geom_point(size = 3) +  
+  scale_x_log10() +       
+  scale_y_log10() +      
+  labs(
+    title = "Average Life Expectancy vs GDP per Capita",
+    x = "Average GDP per Capita (log scale)",
+    y = "Average Life Expectancy (log scale)"
+  ) +
+  theme_minimal()
+
+```
+
+3 E.
+
+```{r}
+gapminder_life_gain <- gapminder %>%
+  group_by(country) %>%
+  mutate(
+    First_Year_LifeExp = first(lifeExp),
+    LifeExp_Gain = lifeExp - First_Year_LifeExp)
+
+print(gapminder_life_gain %>% filter(country %in% c("Norway", "China", "India")))
+
+gapminder_life_diff <- gapminder %>%
+  group_by(country, continent) %>%
+  arrange(year) %>%
+  mutate(
+    LifeExp_Diff = lifeExp - lag(lifeExp))
+
+sharpest_drop_continent <- gapminder_life_diff %>%
+  filter(!is.na(LifeExp_Diff)) %>%
+  group_by(continent) %>%
+  slice_min(order_by = LifeExp_Diff, n = 1)
+
+print(sharpest_drop_continent)
+
+gapminder_yearly_diff <- gapminder %>%
+  group_by(country) %>%
+  arrange(year) %>%
+  mutate(
+    Yearly_Change = lifeExp - lag(lifeExp))
+
+print(gapminder_yearly_diff %>% filter(country %in% c("Norway", "China", "India")))
+
+```
